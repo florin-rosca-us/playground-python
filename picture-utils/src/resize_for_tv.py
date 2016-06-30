@@ -37,7 +37,6 @@ def main(argv):
             raise getopt.GetoptError("Must have at least one argument")    
         opts, _ = getopt.getopt(argv, "hi:o:", ["help", "in=", "out="])
         for opt, arg in opts:
-            print("OPT", opt, " ARG", arg)
             if opt in ("-h", "--help"):
                 raise getopt.GetoptError("Help") 
             elif opt in ("-i", "--in"):
