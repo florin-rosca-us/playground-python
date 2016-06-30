@@ -84,7 +84,7 @@ def walk(inputroot, outputroot):
         rel = os.path.relpath(inputdir, inputroot)
         outputdir = os.path.join(outputroot, rel)
         if not os.path.exists(outputdir):
-            print("{0} does not exist, creating...".format(outputroot))
+            print("{0} does not exist, creating...".format(outputdir))
             os.makedirs(outputdir)
         for inputfile in inputfiles:
             # Skip hidden files
