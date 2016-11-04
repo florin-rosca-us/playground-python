@@ -1,4 +1,4 @@
 # playground-python
 Playground for learning Python
 
-* [picture-utils](picture-utils) - picture utilities
+* [myutils](myutils) - file and directory utilities, mostly for managing pictures and movies.
