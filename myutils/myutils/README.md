@@ -1,3 +1,3 @@
-# Picture utilities
+# MyUtil
 
-Batch resize pictures for TV.
+File and directory utilities, mostly for managing pictures and movies.
