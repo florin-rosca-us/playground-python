@@ -1,16 +1,16 @@
-#!/opt/local/bin/python3
+"""
+Resizes JPEG pictures to fit on a HDTV (1920x1080). Requires ImageMagick, Wand and libmagic.
 
-'''
-Resizes pictures to fit on a HDTV (1920x1080). Requires ImageMagick, Wand and libmagic.
-
+TODO: Support any picture type: JPEG, PNG etc.
 TODO: Specify TV size: HD, UHD
 TODO: Specify diagonal size in inches -> calculate DPI
 TODO: Flag for force delete existing pictures in out directory
 
 Created on Jun 21, 2016
 
-@author: Florin
-'''
+@author: Florin Rosca
+"""
+
 import re, math, collections, sys, getopt, os, magic
 from wand.image import Image
 
@@ -22,14 +22,14 @@ SCRIPT = os.path.basename(__file__)
 
 
 class ValidationException(Exception):
-    ''' An exception throws when a validation error occurs '''
+    """ An exception thrown when a validation error occurs """
     def __init__(self,*args,**kwargs):
         Exception.__init__(self,*args,**kwargs)
        
         
 
 def main(argv):
-    ''' Main method '''
+    """ Main method """
     inputdir = ""
     outputdir = ""
     try:
@@ -62,7 +62,7 @@ def main(argv):
 
         
 def validate(inputdir, outputdir):
-    ''' Validates input and output directories '''
+    """ Validates input and output directories """
     
     if len(inputdir) == 0 or len(outputdir) == 0:
         raise ValidationException("Must specify an input and an output.") 
@@ -73,7 +73,7 @@ def validate(inputdir, outputdir):
     
 
 def walk(inputroot, outputroot):
-    ''' Walks input directory, creates output directory if needed '''
+    """ Walks input directory, creates output directory if needed """
     
     print("Resizing...")
     # Counters for dirs, files and resized pictures
@@ -101,7 +101,7 @@ def walk(inputroot, outputroot):
     
     
 def resize(inputpath, outputpath):
-    ''' Resizes one image, saves as JPG '''
+    """ Resizes one image, saves as JPG """
     
     print("{0} - > {1}".format(inputpath, outputpath))
     if os.path.exists(outputpath):

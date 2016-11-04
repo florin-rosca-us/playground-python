@@ -1,21 +1,26 @@
-'''
+"""
+Copies JPEG files from the input directory and its sub-directories to the specified output directory.
+
+TODO: Specify what to move.
+
 Created on Jun 30, 2016
 
-@author: Florin
-'''
+@author: Florin Rosca
+"""
+
 import sys, os, getopt, math, shutil
 
 
 SCRIPT = os.path.basename(__file__)
 
 class ValidationException(Exception):
-    ''' An exception throws when a validation error occurs '''
+    """ An exception throws when a validation error occurs """
     def __init__(self,*args,**kwargs):
         Exception.__init__(self,*args,**kwargs)
         
       
 def main(argv):
-    ''' Main method '''
+    """ Main method """
     inputdir = ""
     outputdir = ""
     try:
@@ -34,7 +39,7 @@ def main(argv):
         walk(inputdir, outputdir)
     except getopt.GetoptError:
         print("USAGE: {0} <options>".format(SCRIPT))
-        print()
+        print("")
         print("OPTIONS:")
         print("   -i <directory>        The input directory")
         print("   -o <directory>        The output directory")
@@ -49,7 +54,7 @@ def main(argv):
     
 
 def validate(inputdir, outputdir):
-    ''' Validates input and output directories '''
+    """ Validates input and output directories """
     if len(inputdir) == 0 or len(outputdir) == 0:
         raise ValidationException("Must specify an input and an output.") 
     if os.path.realpath(inputdir) == os.path.realpath(outputdir):
@@ -67,7 +72,7 @@ def accept(dir, file):
     
     
 def walk(inputroot, outputroot):
-    ''' Walks input directory, creates output directory if needed '''
+    """ Walks input directory, creates output directory if needed """
     count = { "dirs": 0, "files": 0, "moved": 0 }
     
     # Count files to copy to determine number of padding zeros
