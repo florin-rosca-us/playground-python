@@ -7,13 +7,13 @@ config = {
     'description': 'My Utils',
     'author': 'Florin Rosca',
     'url': 'URL to get it at.',
-    'download_url': 'Where to download it.',
-    'author_email': 'My email.',
-    'version': '0.1',
-    'install_requires': ['nose'],
-    'packages': ['NAME'],
+    'download_url': 'https://github.com/florin-rosca-us/playground-python/tree/master/myutils',
+    'author_email': '',
+    'version': '1.0',
+    'install_requires': ['magic', 'wand'],
+    'packages': ['myutils'],
     'scripts': [],
-    'name': 'projectname'
+    'name': 'myutils'
 }
 
 setup(**config)

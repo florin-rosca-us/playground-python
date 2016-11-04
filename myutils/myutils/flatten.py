@@ -1,5 +1,5 @@
 """
-Copies JPEG files from the input directory and its sub-directories to the specified output directory.
+Copies JPEG files from the input directory and its sub-directories recursively to the specified output directory.
 
 TODO: Specify what to move.
 
@@ -21,22 +21,20 @@ class ValidationException(Exception):
       
 def main(argv):
     """ Main method """
-    inputdir = ""
-    outputdir = ""
+    input_dir = ""
+    output_dir = ""
     try:
         if len(argv) == 0:
             raise getopt.GetoptError("Must have at least one argument") 
-
         opts, _ = getopt.getopt(argv, "hi:o:", ["help", "in=", "out="])
         for opt, arg in opts:
             if opt in ("-h", "--help"):
                 raise getopt.GetoptError("Help") 
             elif opt in ("-i", "--in"):
-                inputdir = arg
+                input_dir = arg
             elif opt in ("-o", "--out"):
-                outputdir = arg
-        validate(inputdir, outputdir)
-        walk(inputdir, outputdir)
+                output_dir = arg
+        flatten(input_dir, output_dir)
     except getopt.GetoptError:
         print("USAGE: {0} <options>".format(SCRIPT))
         print("")
@@ -53,17 +51,18 @@ def main(argv):
         sys.exit(2)
     
 
-def validate(inputdir, outputdir):
-    """ Validates input and output directories """
-    if len(inputdir) == 0 or len(outputdir) == 0:
+def _validate(input_dir, output_dir):
+    """ Validates input and output directories, throws a ValidateException if invalid. """
+    if len(input_dir) == 0 or len(output_dir) == 0:
         raise ValidationException("Must specify an input and an output.") 
-    if os.path.realpath(inputdir) == os.path.realpath(outputdir):
+    if os.path.realpath(input_dir) == os.path.realpath(output_dir):
         raise ValidationException("The input must be different from the output.")
-    if not os.path.exists(inputdir):
-        raise ValidationException("'{0}' does not exist.".format(inputdir))
+    if not os.path.exists(input_dir):
+        raise ValidationException("'{0}' does not exist.".format(input_dir))
     
     
-def accept(dir, file):
+def _accept(dir_, file):
+    """ Returns True if the file should be processed, False if not. """
     if file.startswith("."):
         return False
     if not file.lower().endswith(".jpg"):
@@ -71,39 +70,40 @@ def accept(dir, file):
     return True
     
     
-def walk(inputroot, outputroot):
+def flatten(input_dir, output_dir):
     """ Walks input directory, creates output directory if needed """
+    _validate(input_dir, output_dir)
     count = { "dirs": 0, "files": 0, "moved": 0 }
     
     # Count files to copy to determine number of padding zeros
-    for dirpath, dirs, files in os.walk(inputroot):
-        if os.path.samefile(inputroot, dirpath):
+    for dirpath, _, files in os.walk(input_dir):
+        if os.path.samefile(input_dir, dirpath):
             continue
         for file in files:
-            if not accept(dirpath, file):
+            if not _accept(dirpath, file):
                 continue
             count["files"] += 1
     print("Count: {0}".format(count["files"]))  
     zeros = int(math.ceil(math.log10(count["files"])))
     print("Zeros: {0}".format(zeros))   
 
-    if not os.path.exists(outputroot):
-        print("{0} does not exist, creating...".format(outputroot))
-        os.makedirs(outputroot)
+    if not os.path.exists(output_dir):
+        print("{0} does not exist, creating...".format(output_dir))
+        os.makedirs(output_dir)
             
     # Copy files under output root with new name   
     i = 0 
-    for dirpath, _, files in os.walk(inputroot):
+    for dirpath, _, files in os.walk(input_dir):
         count["dirs"] += 1
         for file in files:
-            if not accept(dirpath, file):
+            if not _accept(dirpath, file):
                 continue
             
             inputpath = os.path.join(dirpath, file)
             _, inputext = os.path.splitext(inputpath)
             i += 1
             outputfile = str(i).zfill(zeros) + inputext 
-            outputpath= os.path.join(outputroot, outputfile)
+            outputpath= os.path.join(output_dir, outputfile)
             print("{0} -> {1}".format(inputpath, outputpath))
             if os.path.exists(outputpath):
                 print("Already exists")

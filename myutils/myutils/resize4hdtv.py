@@ -43,8 +43,7 @@ def main(argv):
                 inputdir = arg
             elif opt in ("-o", "--out"):
                 outputdir = arg
-        validate(inputdir, outputdir)
-        walk(inputdir, outputdir)
+        resize4hdtv(inputdir, outputdir)
     except getopt.GetoptError:
         print("USAGE: {0} <options>".format(SCRIPT))
         print()
@@ -61,62 +60,68 @@ def main(argv):
         sys.exit(2)
 
         
-def validate(inputdir, outputdir):
+def _validate(input_dir, output_dir):
     """ Validates input and output directories """
     
-    if len(inputdir) == 0 or len(outputdir) == 0:
+    if len(input_dir) == 0 or len(output_dir) == 0:
         raise ValidationException("Must specify an input and an output.") 
-    if os.path.realpath(inputdir) == os.path.realpath(outputdir):
+    if os.path.realpath(input_dir) == os.path.realpath(output_dir):
         raise ValidationException("The input must be different from the output.")
-    if not os.path.exists(inputdir):
-        raise ValidationException("'{0}' does not exist.".format(inputdir))
+    if not os.path.exists(input_dir):
+        raise ValidationException("'{0}' does not exist.".format(input_dir))
     
 
-def walk(inputroot, outputroot):
+def _accept(dir_, file):
+    """ Returns True if the file should be processed, False if not. """
+    if file.startswith("."):
+        return False
+    return True
+
+
+def resize4hdtv(input_dir, output_dir):
     """ Walks input directory, creates output directory if needed """
-    
     print("Resizing...")
+    _validate(input_dir, output_dir)
     # Counters for dirs, files and resized pictures
     count = { "dirs": 0, "files": 0, "resized": 0 }
     
-    for inputdir, _, inputfiles in os.walk(inputroot):
+    for src_dir, _, files in os.walk(input_dir):
         count["dirs"] += 1
-        rel = os.path.relpath(inputdir, inputroot)
-        outputdir = os.path.join(outputroot, rel)
-        if not os.path.exists(outputdir):
-            print("{0} does not exist, creating...".format(outputdir))
-            os.makedirs(outputdir)
-        for inputfile in inputfiles:
-            # Skip hidden files
-            if inputfile.startswith("."):
+        rel = os.path.relpath(src_dir, input_dir)
+        dst_dir = os.path.join(output_dir, rel)
+        if not os.path.exists(dst_dir):
+            print("{0} does not exist, creating...".format(dst_dir))
+            os.makedirs(dst_dir)
+        for f in files:
+            if not _accept(src_dir, f):
                 continue
-            inputpath = os.path.join(inputdir, inputfile)
-            outputpath = os.path.join(outputdir, inputfile)
+            src_path = os.path.join(src_dir, f)
+            dst_path = os.path.join(dst_dir, f)
             count["files"] += 1
-            if resize(inputpath, outputpath):
+            if _resize(src_path, dst_path):
                 count["resized"] += 1
                
     print("{0} directories, {1} files, {2} pictures resized.".format(count["dirs"], count["files"], count["resized"])) 
     print("Done.")
     
     
-def resize(inputpath, outputpath):
+def _resize(input_path, output_path):
     """ Resizes one image, saves as JPG """
     
-    print("{0} - > {1}".format(inputpath, outputpath))
-    if os.path.exists(outputpath):
+    print("{0} - > {1}".format(input_path, output_path))
+    if os.path.exists(output_path):
         print("Already resized, skipping...")
         return False
-    match = re.search("\(\d+\)\.jpg", inputpath)
+    match = re.search("\(\d+\)\.jpg", input_path)
     if match:
         print("Duplicate, skipping...")
         return
         
-    t = str(magic.from_file(inputpath, mime=True))
+    t = str(magic.from_file(input_path, mime=True))
     if t.find("image/jpeg") < 0:
         return False
     
-    with Image(filename=inputpath) as img:
+    with Image(filename=input_path) as img:
         print("Old size    : {0}x{1}".format(img.width, img.height))
         img.resolution = RESOLUTION
         if img.width >= img.height:
@@ -143,7 +148,7 @@ def resize(inputpath, outputpath):
         # Sharpen the image. Parameters found somewhere here:
         # http://www.imagemagick.org/Usage/blur/#sharpen
         img.unsharp_mask(radius=2, sigma=1, amount=0.8, threshold=0.016)
-        img.save(filename=outputpath)
+        img.save(filename=output_path)
      
     return True
 
