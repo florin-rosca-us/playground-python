@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Copies JPEG files from the input directory and its sub-directories recursively to the specified output directory.
 
@@ -7,18 +9,18 @@ Created on Jun 30, 2016
 
 @author: Florin Rosca
 """
-
 import sys, os, getopt, math, shutil
 
 
 SCRIPT = os.path.basename(__file__)
+
 
 class ValidationException(Exception):
     """ An exception throws when a validation error occurs """
     def __init__(self,*args,**kwargs):
         Exception.__init__(self,*args,**kwargs)
         
-      
+
 def main(argv):
     """ Main method """
     input_dir = ""
@@ -49,8 +51,8 @@ def main(argv):
     except ValidationException as ex:
         print("ERROR: {1}".format("".join(ex.args)))
         sys.exit(2)
-    
-
+        
+         
 def _validate(input_dir, output_dir):
     """ Validates input and output directories, throws a ValidateException if invalid. """
     if len(input_dir) == 0 or len(output_dir) == 0:
@@ -114,7 +116,8 @@ def flatten(input_dir, output_dir):
 
     print("{0} directories, {1} files, {2} files moved.".format(count["dirs"], count["files"], count["moved"])) 
     print("Done.")
-    
-       
+
+
 if __name__ == "__main__":
     main(sys.argv[1:])
+

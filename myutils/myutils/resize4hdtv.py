@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Resizes JPEG pictures to fit on a HDTV (1920x1080). Requires ImageMagick, Wand and libmagic.
 

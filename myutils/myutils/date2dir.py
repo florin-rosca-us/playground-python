@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Creates sub-directories in the format yyy.mm.dd under the specified output directory and moves files from the specified input directory according to creation dates.
 The output directory can be the same as the input directory. Skips files starting with dot.
