@@ -49,7 +49,7 @@ def main(argv):
         print("   --help                Show help")
         sys.exit(1)
     except ValidationException as ex:
-        print("ERROR: {1}".format("".join(ex.args)))
+        print("ERROR: {0}".format("".join(ex.args)))
         sys.exit(2)
         
          
