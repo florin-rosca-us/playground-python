@@ -8,7 +8,7 @@ Created on Nov 4, 2016
 @author: Florin Rosca
 """
 
-import sys, os, re, getopt, xml.dom
+import sys, os, re, getopt, math, xml.dom
 from xml.dom.minidom import parse
 from fractions import Fraction
 
@@ -16,7 +16,59 @@ from fractions import Fraction
 SCRIPT = os.path.basename(__file__)
 verbose = False
 
+class FractionalTime(object):
+    numerator = 0
+    denominator = 1
+    
+    def __init__(self, numerator, denominator):
+        self.numerator = numerator
+        self.denominator = denominator
+        
+    @classmethod
+    def from_fcp_time(cls, s):
+        numerator = 0
+        denominator = 1
+        m = re.match("(\d+)/?(\d+)?s", s)
+        str_num = m.group(1)
+        if str_num:
+            numerator = int(str_num)
+        str_den = m.group(2)
+        if str_den:
+            denominator = int(str_den)
+        return cls(numerator, denominator)
+    
+    def __str__(self):
+        return "{0}/{1}s".format(self.numerator, self.denominator)
+    
 
+class SmpteTime:
+    hours = 0
+    minutes = 0
+    seconds = 0
+    frames = 0
+    
+    def __init__(self, hours, minutes, seconds, frames):
+        self.hours = hours
+        self.minutes = minutes
+        self.seconds = seconds
+        self.frames = frames
+    
+    @classmethod
+    def from_fractional_time(cls, ft, fps):
+        total_time = ft.numerator / ft.denominator
+        total_seconds = int(total_time)
+        # FIXME: we are not taking into consideration drop frames. The rounding here introduces some errors: frames are off by one or two.
+        frames = int(round((total_time - total_seconds) * fps))
+        seconds = total_seconds % 60
+        total_minutes = int(total_seconds / 60)
+        minutes = total_minutes % 60
+        hours = int(total_minutes / 60)
+        return cls(hours, minutes, seconds, frames)
+        
+    def __str__(self):
+        return "{0:02d}:{1:02d}:{2:02d}.{3:02d}".format(self.hours, self.minutes, self.seconds. self.frames)
+  
+        
 class ParseException(Exception):
     """ An exception throws when a validation error occurs """
     def __init__(self,*args,**kwargs):
@@ -133,7 +185,16 @@ def fcp2mydvd(input_path, input_event, input_project, output_path):
    
     
 def _fcp_chapters(elem_project):
-    """ Extracts the chapter markers from the project """
+    """ Extracts the chapter markers from the FCP project.
+    
+    Argument:
+    elem_project -- a DOM element for the <project> node in the current FCP XML
+    
+    Returns a tuple (time_codes, time_base, time_code_format), where:
+    * time_codes is an array of chapter fractional time tuples (time, base)
+    * time_base is the denominator used for fractional times in the current FCP XML sequence, for example 30000
+    * time_code_format is a string [DF|NDF] indicating drop frame (NTSC, 29.97fps when time_base is 30000) or no drop frame (30fps when time_base is 30000)
+    """
     # Find sequence/spine/[clip asset-clip]
     # TODO: calculate MyDVD time code for markers
     sequence_count = 0
@@ -142,14 +203,29 @@ def _fcp_chapters(elem_project):
         if sequence_count > 1:
             raise ParseException("More than one sequence")
         
-        t_sequence_duration = _xml_attr_fcp_time(elem_sequence, "duration")
-        t_sequence_tc_format = _xml_attr(elem_sequence, "tcFormat", "NDF")
+        sequence_tc_format = _xml_attr(elem_sequence, "tcFormat", "NDF")
+        ft_sequence_duration = _xml_attr_fcp_time(elem_sequence, "duration")
+        time_base = ft_sequence_duration[1]
+        
+        # Determine target frames per second rate. We support only 29.97 and 30 fps
+        # TODO: better way of determining target frame rate. Where is that in FCP XML?
+        fps = 0
+        if time_base == 30000:
+            if sequence_tc_format == "DF":
+                fps = 30000 / 1001
+            if sequence_tc_format == "NDF":
+                fps = 30000 / 1000
+        else:
+            raise ParseException("Time base not supported yet: {0}".format(time_base))
+        
         if verbose:
-            print("Sequence duration         : {0}".format(t_sequence_duration))
-            print("Sequence time code format : {0}".format(t_sequence_tc_format))
-            # TODO: verify that t_sequence_duration[1] is the base, 30000 = 29.97fps(?)
+            print()
+            print("Sequence duration         : {0}".format(_fr2str(ft_sequence_duration, fps)))
+            print("Sequence time code format : {0}".format(sequence_tc_format))
+            print("Frame rate                : {0}".format(fps))
+            print()
+            # TODO: verify that ft_sequence_duration[1] is the base, 30000 = 29.97fps(?)
             
-        time_base = t_sequence_duration[1]
         chapters = []
         
         for elem_spine in elem_sequence.getElementsByTagName("spine"):
@@ -168,8 +244,13 @@ def _fcp_chapters(elem_project):
                 # The start relative to the clip
                 t_clip_start = _xml_attr_fcp_time(elem_clip, "start")
 
+                # elem_clip.tagName is either clip or asset-clip here
                 if verbose:
-                    print("{0:<10} Name: {1:<30} Offset: {2} Duration: {3} Start: {4}".format(elem_clip.tagName, elem_clip.attributes["name"].value, _t2smpte(t_clip_offset), _t2smpte(t_clip_duration), _t2smpte(t_clip_start)))
+                    print("Start: {0:} Offset: {1} Duration: {2} Name: {3}".format(
+                        _fr2str(t_clip_start, fps),
+                        _fr2str(t_clip_offset, fps), 
+                        _fr2str(t_clip_duration, fps), 
+                        elem_clip.attributes["name"].value))
                         
                 for c2 in elem_clip.childNodes:
                     if not c2.nodeType == xml.dom.Node.ELEMENT_NODE:
@@ -192,21 +273,36 @@ def _fcp_chapters(elem_project):
                     chapter = (int(f_chapter_abs.numerator * time_base / f_chapter_abs.denominator), time_base)
                     chapters.append(chapter)
                     
-        for chapter in chapters:
-            if verbose:
-                print("Chapter: {0}".format(_t2smpte(chapter)))
+        if verbose:
+            print()
+            for chapter in chapters:
+                print("Chapter: {0}".format(_fr2str(chapter, fps)))
         
-    return True
+    return (chapters, time_base, sequence_tc_format)
 
 
-def _t2smpte(t):
-    """ Converts a tuple (time, base) to a SMPTE time code hh:mm:ss.ff """
-    total_seconds = int(t[0] / t[1])
+def _fr2smpte(t, fps):
+    """ Converts a fractional time tuple (time, base) to a SMPTE time tuple (h, m, s, f) using the specified frames per second rate """
+    total_time = t[0] / t[1]
+    total_seconds = int(total_time)
+    # FIXME: we are not taking into consideration drop frames. The rounding here introduces some errors: frames are off by one or two.
+    frames = int(round((total_time - total_seconds) * fps))
     seconds = total_seconds % 60
     total_minutes = int(total_seconds / 60)
     minutes = total_minutes % 60
     hours = int(total_minutes / 60)
-    return "{0:02d}:{1:02d}:{2:02d}.{3:02d}".format(hours, minutes, seconds, 0)
+    return (hours, minutes, seconds, frames)
+
+
+def _fr2str(t, fps):
+    """ Converts a fractional time tuple (time, base) to a SMPTE string hh:mm:ss.ff """
+    return _smpte2str(_fr2smpte(t, fps))
+
+
+def _smpte2str(t):
+    """ Converts a SMPTE time tuple (h, m, s, f) to a SMPTE string hh:mm:ss.ff """
+    # Unpacking the tuple, see http://stackoverflow.com/questions/15181927/new-style-formatting-with-tuple-as-argument
+    return "{0:02d}:{1:02d}:{2:02d}.{3:02d}".format(*t)
 
 
 def _xml_attr(elem, name, def_val):
@@ -221,7 +317,7 @@ def _xml_attr(elem, name, def_val):
     
     
 def _xml_attr_fcp_time(elem, attr):
-    """ Reads the specified element attribute by name in the form ######/#####s and converts it to a tuple (time, base) """
+    """ Reads the specified element attribute by name in the form ######/#####s and converts it to a tuple (time, base) representing a fraction """
     try:
         str_time = elem.attributes[attr].value
     except KeyError:
