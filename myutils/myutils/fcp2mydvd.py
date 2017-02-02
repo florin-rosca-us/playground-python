@@ -201,6 +201,13 @@ def main(argv):
         print('   --out=<file>        The output Toast MyDVD file')
         print('   --help              Show help')
         print('   --verbose           Show details')
+        print('')
+        print('WORKFLOW:')
+        print('   1. Final Cut Pro: Share movie as Master File, H-264 encoded')
+        print('   2. Final Cut Pro: Export XML / Metadata View: General')
+        print('   3. MyDVD: Create a new project, set the media to Master File')
+        print('   4. MyDVD: Add at least one chapter')
+        print('   5. Run this script to obtain a modified out.MyDVD file')
         sys.exit(1)
         
     except ParseException as ex:
@@ -209,7 +216,8 @@ def main(argv):
         
         
 def fcp2mydvd(fcp_path, fcp_event, fcp_project, mydvd_path, out_path):
-    """ Converts Final Cut Pro chapter markers to Toast MyDVD. """
+    """ Converts Final Cut Pro chapter markers to Toast MyDVD. 
+    """
     _set_mydvd_chapters(mydvd_path, _get_fcp_project(fcp_path, fcp_event, fcp_project), out_path)
 
 
@@ -272,6 +280,8 @@ def _get_fcp_project(path, event, project):
     
     
 def _get_fcp_chapters(elem_sequence, time_base, fps):
+    """ Extracts chapter information from the specified Final Cut Pro XML file.
+    """
     global _verbose
     if _verbose:
         print('Looking for chapters...')
@@ -316,11 +326,9 @@ def _get_fcp_chapters(elem_sequence, time_base, fps):
 
 
 def _set_mydvd_chapters(path, fcp_project, out_path):
-    """ Exports the specified chapters to the specified toast file """   
+    """ Exports the specified chapters to the specified MyDVD file.
+    """   
     global _verbose
-    if _verbose:
-        print('Saving...')
-        print()
         
     if not fcp_project:
         raise ParseException('No project')    
@@ -375,23 +383,27 @@ def _set_mydvd_chapters(path, fcp_project, out_path):
 
     xml = str(dom.toxml())
     
-    # MyDVD does not like <tag/>
-    # Replace <tag/> with <tag></tag>
+    # MyDVD quirks:
+    # 1. Does not like <tag/>, replacing <tag/> with <tag></tag>
+    tags_changed = False
     for m in re.finditer('\<([0-9A-Za-z]+)/\>', xml):
-        print('Found ' + m.group(1))
         if m.group(0) in xml:
             tag_before = m.group(0)
             tag_after = '<{0}></{0}>'.format(m.group(1))
             xml = xml.replace(tag_before, tag_after)
-
-    # MyDVD does not like a new line at the end of the file    
+            tags_changed = True
+            if _verbose:
+                print('Empty tag changed from {0} to {1}'.format(tag_before, tag_after))
+    # 2. Does not like a new line at the end of the file    
     xml = xml.rstrip('\n')
-    
-    #if _verbose:
-    #    print(xml)
+    if tags_changed:
+        if _verbose:
+            print('')
     
     with open(out_path, 'w') as out_file:
         print(xml, file=out_file)
+    if _verbose:
+        print('Saved to {0}'.format(out_path))
  
  
 def _add_mydvd_chapter(dom, elem_parent, url, chapter_name, edit_name, time_value, time_scale):
