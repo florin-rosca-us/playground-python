@@ -12,10 +12,9 @@ Created on Nov 4, 2016
 from fractions import Fraction
 import sys, os, re, getopt
 from xml.dom.minidom import parse
-import xmlutils
-from xmlutils import ParseException
 
-from pip._vendor.pyparsing import basestring
+from xmlutils import ParseException
+import xmlutils
 
 
 SCRIPT = os.path.basename(__file__)
@@ -137,12 +136,6 @@ class FcpProject(object):
     chapters = None
     
     def __init__(self, event, name, time_base, tc_format, chapters):
-        assert isinstance(event, basestring)
-        assert isinstance(name, basestring)
-        assert isinstance(time_base, int)
-        assert isinstance(tc_format, basestring)
-        # TODO: assert chapters is an array of FcpChapter objects
-        assert chapters != None
         self.event = event
         self.name = name
         self.time_base = time_base
