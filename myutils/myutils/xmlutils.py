@@ -16,7 +16,21 @@ class ParseException(Exception):
     def __init__(self, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
         
-        
+
+def append_elem(dom, parent, name):
+    """ Appends an element with the specified tag name. """
+    elem = dom.createElement(name)
+    parent.appendChild(elem)
+    return elem
+
+
+def append_elem_with_text(dom, parent, name, text):
+    """ Appends an element with the specified tag name and the specified text content. """
+    elem = dom.createElement(name)
+    parent.appendChild(elem)
+    elem.appendChild(dom.createTextNode(text))
+    return elem
+    
 def get_attr(elem, name, def_val):
     """ Returns the attribute value or the default value if the attribute cannot be found or it is empty. """
     try:

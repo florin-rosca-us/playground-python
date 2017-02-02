@@ -72,7 +72,7 @@ class FractionalTime(object):
     
 
 class SmpteTime(object):
-    """ A SMPTE time code: hh:mm:ss.ff
+    """ A SMPTE time code: hh:mm:ss.ff.
     """
     hours = 0
     minutes = 0
@@ -127,7 +127,7 @@ class FcpChapter(object):
 
 
 class FcpProject(object):
-    """ A FCP project 
+    """ A FCP project.
     """
     event = ""
     name = ""
@@ -145,57 +145,62 @@ class FcpProject(object):
     
 def main(argv):
     global _verbose
-    input_path = ""
-    input_event = ""
-    input_project = ""
-    output_path = ""
+    fcp_path = ""
+    fcp_event = ""
+    fcp_project = ""
+    mydvd_path = ""
+    out_path = ""
     _verbose = False
     try:
         if len(argv) == 0:
             raise getopt.GetoptError('Must have at least one argument')
-        opts, _ = getopt.getopt(argv, 'hi:e:p:o:v', ['help', 'in=', 'event=', 'project=', 'out=', '_verbose'])
+        opts, _ = getopt.getopt(argv, 'hf:e:p:m:v:o', ['help', 'fcp=', 'event=', 'project=', 'mydvd=', 'out=', 'verbose'])
         
         for opt, arg in opts:
             if opt in ('-h', '--help'):
                 raise getopt.GetoptError('Help') 
-            elif opt in ('-i', '--in'):
-                input_path = arg
+            elif opt in ('-f', '--fcp'):
+                fcp_path = arg
             elif opt in ('-e', '--event'):
-                input_event = arg
+                fcp_event = arg
             elif opt in ('-p', '--project'):
-                input_project = arg
+                fcp_project = arg
+            elif opt in ('-m', '--mydvd'):
+                mydvd_path = arg
             elif opt in ('-o', '--out'):
-                output_path = arg
-            elif opt in ('-v', '--_verbose'):
+                out_path = arg
+            elif opt in ('-v', '--verbose'):
                 _verbose = True
             
-        if not input_path:
-            raise getopt.GetoptError('Missing input XML file')
-        if not input_event:
+        if not fcp_path:
+            raise getopt.GetoptError('Missing Final Cut Pro XML file')
+        if not fcp_event:
             raise getopt.GetoptError('Missing event name')
-        if not input_project:
+        if not fcp_project:
             raise getopt.GetoptError('Missing project name')
-        if not output_path:
+        if not mydvd_path:
             raise getopt.GetoptError('Missing output XML file')
         
-        fcp2mydvd(input_path, input_event, input_project, output_path)
+        fcp2mydvd(fcp_path, fcp_event, fcp_project, mydvd_path, out_path)
         
     except getopt.GetoptError:
         print('USAGE: {0} <options>'.format(SCRIPT))
         print('')
         print('OPTIONS:')
-        print('   -i <file>           The input Final Cut Pro XML file')
-        print('   -e <NAME>           The event name in the Final Cut Pro library')
-        print('   -p <NAME>           The project name under the event in the Final Cut Pro library')
+        print('   -f <file>           The Final Cut Pro XML file')
+        print('   -e <NAME>           The event name in the Final Cut Pro XML file')
+        print('   -p <NAME>           The project name under the event in the Final Cut Pro XML file')
+        print('   -m <file>           The Toast MyDVD file')
         print('   -o <file>           The output Toast MyDVD file')
         print('   -h                  Show help')
         print('   -v                  Show details')
-        print('   --in=<file>         The input Final Cut Pro XML file')
-        print('   --event=<NAME>      The event name in the Final Cut Pro library')
-        print('   --project=<NAME>    The project name under the event in the Final Cut Pro library')
+        print('   --fcp=<file>        The Final Cut Pro XML file')
+        print('   --event=<NAME>      The event name in the Final Cut Pro XML file')
+        print('   --project=<NAME>    The project name under the event in the Final Cut Pro XML file')
+        print('   --mydvd=<file>      The Toast MyDVD file')
         print('   --out=<file>        The output Toast MyDVD file')
         print('   --help              Show help')
-        print('   --_verbose           Show details')
+        print('   --verbose           Show details')
         sys.exit(1)
         
     except ParseException as ex:
@@ -203,9 +208,9 @@ def main(argv):
         sys.exit(2)
         
         
-def fcp2mydvd(fcp_path, fcp_event, fcp_project, mydvd_path):
+def fcp2mydvd(fcp_path, fcp_event, fcp_project, mydvd_path, out_path):
     """ Converts Final Cut Pro chapter markers to Toast MyDVD. """
-    _set_mydvd_chapters(mydvd_path, _get_fcp_project(fcp_path, fcp_event, fcp_project))
+    _set_mydvd_chapters(mydvd_path, _get_fcp_project(fcp_path, fcp_event, fcp_project), out_path)
 
 
 def _get_fcp_project(path, event, project):
@@ -310,7 +315,7 @@ def _get_fcp_chapters(elem_sequence, time_base, fps):
     return chapters
 
 
-def _set_mydvd_chapters(path, fcp_project):
+def _set_mydvd_chapters(path, fcp_project, out_path):
     """ Exports the specified chapters to the specified toast file """   
     global _verbose
     if _verbose:
@@ -344,11 +349,73 @@ def _set_mydvd_chapters(path, fcp_project):
     
     # Remove all children of MDMenu/children
     xmlutils.remove_children(elem_title_menu_children)
-    
-    # TODO: Add new chapters
 
-    print(str(doc.toxml()))
+    # Adds first marker for the beginning of the movie   
+    count = 1
+    if fcp_project.time_base != 30000:
+        raise ParseException('Time base not supported yet: {0}'.format(fcp_project.time_base))    
+    time_scale = fcp_project.time_base
+    if fcp_project.tc_format == 'DF':
+        time_scale = 29970
+        
+    fps = time_scale / 1000
+    # For some reason the first time_scale is multiplied by 1000
+    _add_mydvd_chapter(dom, elem_title_menu_children, url, str(count), 'Start of Movie', 0, time_scale * 1000)
     
+    for chapter in fcp_project.chapters:
+        time_value = round(chapter.offset.numerator * time_scale / chapter.offset.denominator)
+        # Skip first chapter marker
+        if time_value == 0:
+            continue
+        count += 1
+        # TODO: Use chapter.name or a counter?
+        chapter_name = str(count)
+        edit_name = str(FractionalTime(time_value, time_scale).to_smpte(fps))
+        _add_mydvd_chapter(dom, elem_title_menu_children, url, chapter_name, edit_name, time_value, time_scale)
+
+    xml = str(dom.toxml())
+    
+    # MyDVD does not like <tag/>
+    # Replace <tag/> with <tag></tag>
+    for m in re.finditer('\<([0-9A-Za-z]+)/\>', xml):
+        print('Found ' + m.group(1))
+        if m.group(0) in xml:
+            tag_before = m.group(0)
+            tag_after = '<{0}></{0}>'.format(m.group(1))
+            xml = xml.replace(tag_before, tag_after)
+
+    # MyDVD does not like a new line at the end of the file    
+    xml = xml.rstrip('\n')
+    
+    #if _verbose:
+    #    print(xml)
+    
+    with open(out_path, 'w') as out_file:
+        print(xml, file=out_file)
+ 
+ 
+def _add_mydvd_chapter(dom, elem_parent, url, chapter_name, edit_name, time_value, time_scale):
+    """ Arguments:
+        * dom -- the DOM
+        * parent -- the parent element
+        * url -- the video file URL
+        * chapter_name -- the user-friendly chapter name
+        * edit_name -- Start of Movie or SMPTE code
+        * time_value -- an int value
+        * time_scape -- an int value
+    """
+    elem_chapter = dom.createElement('MDChapter')
+    elem_parent.appendChild(elem_chapter)
+    xmlutils.append_elem_with_text(dom, elem_chapter, 'name', chapter_name)
+    elem_preview_thumbnail = xmlutils.append_elem(dom, elem_chapter, 'previewThumbnail')
+    xmlutils.append_elem_with_text(dom, elem_preview_thumbnail, 'isNative', '0')
+    xmlutils.append_elem(dom, elem_chapter, 'children')
+    xmlutils.append_elem_with_text(dom, elem_chapter, 'url', url)
+    xmlutils.append_elem_with_text(dom, elem_chapter, 'editName', edit_name)
+    elem_time = xmlutils.append_elem(dom, elem_chapter, 'time')
+    xmlutils.append_elem_with_text(dom, elem_time, 'value', str(time_value))
+    xmlutils.append_elem_with_text(dom, elem_time, 'timescale', str(time_scale))
+       
     
 if __name__ == "__main__":
     main(sys.argv[1:])
