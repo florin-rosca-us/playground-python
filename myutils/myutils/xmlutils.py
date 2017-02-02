@@ -1,14 +1,35 @@
+#!/usr/bin/env python3
+
+"""
+Collection of XML DOM utilities.
+
+Created on Feb 01, 2017
+
+@author: Florin Rosca
+"""
+
 import xml.dom
 
 
 class ParseException(Exception):
-    """ An exception throws when a validation error occurs """
+    """ An exception throws when a validation error occurs. """
     def __init__(self, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
         
         
+def get_attr(elem, name, def_val):
+    """ Returns the attribute value or the default value if the attribute cannot be found or it is empty. """
+    try:
+        str_val = elem.attributes[name].value
+        if not str_val:
+            str_val = def_val
+    except KeyError:
+        return def_val
+    return str_val
+
+
 def get_child(parent, name):
-    """ Returns the first child node that matches the specified tag name """
+    """ Returns the first child node that matches the specified tag name. """
     for child in parent.childNodes:
         if not child.nodeType == xml.dom.Node.ELEMENT_NODE:
             continue 
@@ -45,6 +66,7 @@ def get_children_by_name(parent, name):
 
 
 def get_children_by_names(parent, names):
+    """ Returns all child nodes that matches one of the specified tag names. """
     children = []
     for child in parent.childNodes:
         if not child.nodeType == xml.dom.Node.ELEMENT_NODE:
@@ -52,20 +74,10 @@ def get_children_by_names(parent, names):
         if child.tagName in names:
             children.append(child)
     return children
-    
-    
-def get_attr(elem, name, def_val):
-    """ Returns the attribute value or the default value if the attribute cannot be found or it is empty """
-    try:
-        str_val = elem.attributes[name].value
-        if not str_val:
-            str_val = def_val
-    except KeyError:
-        return def_val
-    return str_val
 
- 
+
 def get_text(elem):
+    """ Returns the text of the specified element. """
     for child in elem.childNodes:
         if child.nodeType == xml.dom.Node.TEXT_NODE:
             return child.data
